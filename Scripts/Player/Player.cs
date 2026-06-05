@@ -11,12 +11,6 @@ public class Player : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         ID = OwnerClientId;
-
-        if (IsHost && OwnerClientId != 0)
-        {
-            PlayerDatabase.instance.AddPlayerToNetworkList(ID);
-        }
-        
         if (!IsOwner)
         {
             gameObject.tag = "OtherPlayer";
@@ -25,6 +19,6 @@ public class Player : NetworkBehaviour
 
     public override void OnNetworkDespawn()
     {
-        //PlayerDatabase.instance.RemovePlayerFromNetworkList(ID);
+
     }
 }

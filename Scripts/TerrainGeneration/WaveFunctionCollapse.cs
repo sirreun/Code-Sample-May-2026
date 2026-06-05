@@ -288,6 +288,7 @@ public class WaveFunctionCollapse
             }
         }
         
+
         if (downsizingNeeded)
         {
             foreach (ModuleSO.NameWeightPair constraint in domainOne)
@@ -486,9 +487,7 @@ public class WaveFunctionCollapse
         }
         else 
         {
-            ///
             AddDebugStatementToLog(" > Check AdjacentTileForDomainChange");
-            ///
         }
 
         List<ModuleSO.NameWeightPair> oldDomain = probabilityGrid[tile.Item1, tile.Item2]; // column, row
@@ -510,7 +509,7 @@ public class WaveFunctionCollapse
             {
                 ///
                 AddDebugStatementToLog("\t" + i + ". Getting domain from " + adjacentTile.ToString());
-                //AddDebugStatementToLog("\t\t" + adjacentTile.ToString() + " has domain:\n" + PrintTileDomain(probabilityGrid[adjacentTile.Item1, adjacentTile.Item2]));
+                AddDebugStatementToLog("\t\t" + adjacentTile.ToString() + " has domain:\n" + PrintTileDomain(probabilityGrid[adjacentTile.Item1, adjacentTile.Item2]));
                 /// 
                 if (!setNewDomain)
                 {
@@ -584,7 +583,6 @@ public class WaveFunctionCollapse
         else 
         {
             // Check new changes in adjacent tiles
-
             ///
             string message = "Domain changed to\n" + PrintTileDomain(newDomain) + "in " + tile.ToString() + ".\n";
             AddDebugStatementToLog(message);
@@ -611,6 +609,8 @@ public class WaveFunctionCollapse
     }
 
     // Decide new current tile using entropy calculations, ignore tiles with a 0 in weight.
+    // A list with one item has the lowest entropy, while a long list with equal weights has more entropy than a shorter list
+    // and/or list with uneven weights.
     private static (int, int) SelectMinimumEntropyTile(List<ModuleSO.NameWeightPair>[,] probabilityGrid, int width, int height)
     {
         int minimumWidth = 0;
@@ -656,14 +656,10 @@ public class WaveFunctionCollapse
                             double probability = option.Weight / weightDenominator;
                             probabilities.Add(probability);
                             surprise.Add(System.Math.Log(probability, numberOfOptions));
-
-                            //AddEntryToLog(" Probability " + probability + " and surpise " + surprise.Last().ToString() + " added.");
                         }
                         catch
                         {
-                            ///
                             AddEntryToLog("///ERROR: CalculateMinimumEntropy: Dividing by zero.");
-                            ///
                             Debug.LogError("CalculateMinimumEntropy: Dividing by zero, something has gone terribly wrong.");
                         }   
                     }
@@ -672,7 +668,6 @@ public class WaveFunctionCollapse
 
                     for(int k = 0; k < numberOfOptions; k++)
                     {
-                        //AddEntryToLog("Adding " + probabilities[k] * surprise[k] + " to entropy.");
                         entropy += (probabilities[k] * surprise[k]);
                     }
 
@@ -709,7 +704,6 @@ public class WaveFunctionCollapse
         }
 
         (int, int) minimumEntropyCoordinates = (minimumWidth, minimumHeight);
-        //AddEntryToLog(EntropyGridToString(probabilityGrid, width, height));
         return minimumEntropyCoordinates;
     }
 
@@ -879,6 +873,7 @@ public class ModuleSO // : ScriptableObject
     public class NameWeightPair
     {
         public string Name;
+        //[Range(1,100)]
         public int Weight;
 
         public NameWeightPair(string pairName = "new", int weight = 1)
@@ -903,7 +898,5 @@ public class ModuleSO // : ScriptableObject
         {
             return this.Name + " with weight " + this.Weight.ToString() + "\n";
         }
-
-
     }
 }

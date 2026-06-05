@@ -1,11 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Events;
-using Unity.Netcode;
-using Unity.Netcode.Components;
 
+///Intructions: set object layer to interactable
 [RequireComponent(typeof(InventoryItem))]
 public class InventoryInteractable : Interactable
 {
@@ -18,7 +16,7 @@ public class InventoryInteractable : Interactable
     public UnityEvent[] ItemUnselectedFunctions;
     public UnityEvent AttackAnimationFunctions;
 
-    private InventoryItem inventoryItem;
+    protected InventoryItem inventoryItem;
 
     private string turnOffUI = "[Q] Turn Off";
     private string turnOnUI = "[Q] Turn On";
@@ -26,15 +24,13 @@ public class InventoryInteractable : Interactable
     [Header("Item Battery")]
     public bool UsesPower = true;
     public bool itemOn { get; private set; }
-    private float powerLevel = 100;
+    protected float powerLevel = 100;
     [Range(100, 600)]
     public float TotalPower = 100;
-    private float rateOfPowerDrain = 20; // Per minute
+    protected float rateOfPowerDrain = 20; // Per real time minute
     private System.TimeSpan timeDelta; 
     private System.DateTime startTime; 
     private double parsedTime; // Unit: minutes
-
-    protected PlayerUI ownerPlayerUI;
 
     public enum IType
     {
@@ -48,7 +44,7 @@ public class InventoryInteractable : Interactable
         {
             if (GetComponent<Weapon>() == null)
             {
-                Debug.LogWarning("Item requires a weapon component");
+                Debug.LogWarning("Item requires  a weapon component");
             }
         }
 
@@ -64,9 +60,9 @@ public class InventoryInteractable : Interactable
 
     protected bool CheckIfOwned()
     {
-        if (ownerPlayerUI == null)
+        if (inventoryItem.ownerPlayerUI == null)
         {
-            Debug.LogWarning("Inventory Item is not owned.");
+            Debug.LogWarning("Inventory Item is not owned by any player.");
             return false;
         }
 
@@ -74,34 +70,33 @@ public class InventoryInteractable : Interactable
     }
 
     /// <summary>
-    /// Overridden from Interactable class. Picks up Inventory Item. Called by PlayerInteract.
+    /// Picks up Inventory Item. Called by PlayerInteract.
     /// </summary>
     /// <param name="player"></param>
     public override void Interact(PlayerInteract player)
     {
-        // Check with server if item can be picked up
+        // Check server owned status
         if (inventoryItem.IsPickedUp_SERVER.Value)
         {
-            //Debug.Log("Item already picked up, cannot pick up");
+            Debug.LogWarning("Item already picked up, cannot pick up");
             return;
         }
 
         InventoryManager inventoryManager = player.GetComponent<InventoryManager>();
-
-        if(inventoryManager.AddItemToInventory(this.gameObject))
+        // Add item to inventory through the Inventory Manager
+        // Hide the physical object
+        if(inventoryManager.AddItemToInventory(gameObject))
         {
             Debug.Log("Added " + gameObject.name + " to inventory.");
         }
     }
 
-    /// <summary>
-    /// Item interact function that is used to turn on / off the item when pressing Q.
-    /// </summary>
+    // Item interact function that is used to turn on / off the item when pressing Q
     public void ItemInteract()
     {
         if (UsesPower)
         {
-            ItemOn();
+            TogglePower();
         }
         
         foreach (UnityEvent itemInteractFunction in ItemInteractFunctions)
@@ -115,12 +110,15 @@ public class InventoryInteractable : Interactable
         AttackAnimationFunctions.Invoke();
     }
 
-    /// <summary>
-    ///  Toggles the item on and off if it has enough power.
-    /// </summary>
-    private void ItemOn()
+    // Toggles the item on and off if it has enough power.
+    private void TogglePower()
     {
         if (!CheckIfOwned())
+        {
+            return;
+        }
+
+        if (!UsesPower)
         {
             return;
         }
@@ -131,19 +129,15 @@ public class InventoryInteractable : Interactable
 
             if (itemOn)
             {
-                // Item is being turned on.
-
                 startTime = System.DateTime.Now;
-                ownerPlayerUI.SetInventoryInteractableText(turnOffUI);
+                inventoryItem.ownerPlayerUI.SetInventoryInteractableText(turnOffUI);
                 ElectricityManager.instance.AddPowerSource(this.gameObject.transform);
                 UpdatePowerLevelUI();
             }
             else
             {
-                // Item is being turned off.
-
                 timeDelta = System.DateTime.Now.Subtract(startTime);
-                ownerPlayerUI.SetInventoryInteractableText(turnOnUI);
+                inventoryItem.ownerPlayerUI.SetInventoryInteractableText(turnOnUI);
                 ElectricityManager.instance.RemovePowerSource(this.gameObject.transform);
             }
         }
@@ -163,7 +157,7 @@ public class InventoryInteractable : Interactable
 
         if (itemOn)
         {
-            ItemOn();
+            TogglePower();
         }
         
         
@@ -217,11 +211,11 @@ public class InventoryInteractable : Interactable
 
         if (UsesPower)
         {
-            ownerPlayerUI.UpdatePowerLevelUI(powerLevel, TotalPower);
+            inventoryItem.ownerPlayerUI.UpdatePowerLevelUI(powerLevel, TotalPower);
         }
         else 
         {
-            ownerPlayerUI.RemovePowerLevelUI();
+            inventoryItem.ownerPlayerUI.RemovePowerLevelUI();
         }
     }
 
@@ -234,28 +228,17 @@ public class InventoryInteractable : Interactable
         //Debug.LogWarning("initing interactble ui");
         if (UsesPower)
         {
-            ownerPlayerUI.UpdatePowerLevelUI(powerLevel, TotalPower);
-            ownerPlayerUI.SetInventoryInteractableText(turnOnUI);
+            inventoryItem.ownerPlayerUI.UpdatePowerLevelUI(powerLevel, TotalPower);
+            inventoryItem.ownerPlayerUI.SetInventoryInteractableText(turnOnUI);
             itemOn = false;
         }
         else 
         {
-            ownerPlayerUI.RemoveInteractactableUI();
+            inventoryItem.ownerPlayerUI.RemoveInteractactableUI();
         }
     }
 
     #region /// FUNCTIONS CALLED BY INVENTORY MANAGER ///
-
-    public void PickedUp(PlayerUI playerUI)
-    {
-        ownerPlayerUI = playerUI;
-        ItemSelected();
-    }
-
-    public void Dropped()
-    {
-        ownerPlayerUI = null;
-    }
 
     public void ItemSelected()
     {

@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
-using UnityEngine.UI;
 using System;
 
 public class PlayerUI : MonoBehaviour
@@ -10,6 +9,9 @@ public class PlayerUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI interactablePromptText;
     [SerializeField] private RectTransform healthBar;
     [SerializeField] private TextMeshProUGUI timeUIText;
+    [SerializeField] private GameObject missionQuestUIObject;
+    [SerializeField] private GameObject missionQuestTextObject;
+    [SerializeField] private TextMeshProUGUI missionQuestUITextMesh;
     [SerializeField] private DebugGraph debugGraph;
     public Camera _Camera;
 
@@ -23,13 +25,9 @@ public class PlayerUI : MonoBehaviour
     [Header("Power Level UI")]
     [SerializeField] private TextMeshProUGUI PowerLevelText;
 
-    private float previousPercentSprint = 1f;
-    private float lerpPercent = 0f;
-    private bool isLerping = false;
     [Header("Sprint UI")]
     [SerializeField] private RectTransform sprintBar;
     [SerializeField] private GameObject sprintUI;
-    [SerializeField] private float lerpDuration = 5f;
 
     private PlayerInteract playerInteract;
 
@@ -39,20 +37,20 @@ public class PlayerUI : MonoBehaviour
         
         TimeManager.instance.Tick += UpdateTimeUI;
         UpdateTimeUI();
+        ShowMissionQuestUI(false);
+        UpdateMissionQuestUI("", false);
 
         ShowSprintBar(false);
-        RemoveInteractactableUI();
+        RemoveInteractactableUI(); // Was in Awake
         Cursor.visible = false;
     }
 
     private void OnDestroy()
     {
-        TimeManager.instance.Tick -= UpdateTimeUI;
-    }
-
-    private void OnApplicationQuit()
-    {
-        TimeManager.instance.Tick -= UpdateTimeUI;
+        if (TimeManager.instance != null)
+        {
+            TimeManager.instance.Tick -= UpdateTimeUI; //TODO: causing null refs when timemanager calls tick sometimes
+        }
     }
 
     #region /// Interactable UI Prompt ///
@@ -68,24 +66,45 @@ public class PlayerUI : MonoBehaviour
         InventoryInteractableText.text = "";
     }
 
-    public void UpdateText(Interactable interactable)
+    public bool UpdateText(Interactable interactable)
     {
         if (interactable.ConditionalInteractable)
         {
             if (interactable.ConditionMet(playerInteract))
             {
                 interactablePromptText.text = interactable.interactionPrompt;
+                return true;
             }
             else
             {
                 interactablePromptText.text = "";
+                return false;
             }
         }
         else 
         {
             interactablePromptText.text = interactable.interactionPrompt;
+            return true;
         }
-        
+    }
+
+    /// <summary>
+    /// Changes text based on if can interact or not.
+    /// </summary>
+    /// <param name="item"></param>
+    /// <param name="interactable"></param>
+    /// <returns>Whether the item can be interacted with.</returns>
+    public bool UpdateText(InventoryItem item, Interactable interactable)
+    {
+        if (item.IsPickedUp_SERVER.Value) 
+        {
+            interactablePromptText.text = "";
+            return false;
+        }
+        else
+        {
+            return UpdateText(interactable);
+        }
     }
 
     public void ClearText()
@@ -124,50 +143,36 @@ public class PlayerUI : MonoBehaviour
     }
     #endregion
 
+    public void ShowMissionQuestUI(bool value)
+    {
+        //Debug.Log("SHow Mission quest ui: " + value);
+        missionQuestTextObject.SetActive(value);
+    }
 
-    #region /// Health UI ///
+    public void UpdateMissionQuestUI(string message, bool show)
+    {
+        Debug.Log("Updating player missuion UI: " + message);
+        missionQuestUITextMesh.SetText(message);// .text = message;
+        missionQuestUITextMesh.ForceMeshUpdate(false, true);
+        missionQuestUIObject.SetActive(show);
+    }
+
     public void UpdateHealthBar(float percentHealth)
     {
         // 0 is max health - 900 is zero health
-        healthBar.offsetMin = new Vector2(900 * (1f - percentHealth), 0); // for corruption 900 will need to be variable
+        healthBar.offsetMin = new Vector2(900 * (1f - percentHealth), 0);
     }
-    #endregion
 
-    #region /// Sprint UI ///
     public void UpdateSprintBar(float percentSprint)
     {
-        if (!isLerping)
-        {
-            StartCoroutine(FloatLerp(previousPercentSprint, percentSprint, lerpDuration));
-        }
-
         // 0 is max sprint - 100 is zero sprint
-        sprintBar.offsetMin = new Vector2(100 * (1f - lerpPercent), 0);
-    }
-
-    private IEnumerator FloatLerp(float start, float end, float duration)
-    {
-        float timeElapsed = 0;
-        isLerping = true;
-
-        while (timeElapsed < duration)
-        {
-            lerpPercent = Mathf.Lerp(start, end, timeElapsed / duration);
-            timeElapsed += Time.deltaTime;
-
-            yield return null;
-        }
-
-        lerpPercent = end;
-        isLerping = false;
-        previousPercentSprint = end;
+        sprintBar.offsetMin = new Vector2(100 * (1f - percentSprint), 0);
     }
 
     public void ShowSprintBar(bool show)
     {
         sprintUI.SetActive(show);
     }
-    #endregion
 
     public void UpdateTimeUI()
     {

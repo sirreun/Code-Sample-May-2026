@@ -36,7 +36,7 @@ public class DebugGraph : MonoBehaviour
             return;
         }
 
-        // TODO : consider moving the lines instead of destroying everything each update
+        // TODO : move the lines instead of destroying everything and remaking it?
         foreach (Transform dataPoint in graphContainer)
         {
             if (dataPoint.gameObject.tag == "dataPoint")
@@ -69,7 +69,7 @@ public class DebugGraph : MonoBehaviour
         gameObject.GetComponent<Image>().sprite = circleSprite;
         RectTransform rectTransform = gameObject.GetComponent<RectTransform>();
         rectTransform.anchoredPosition = anchoredPosition;
-        rectTransform.sizeDelta = new Vector2(1, 2); // Data point size
+        rectTransform.sizeDelta = new Vector2(1, 2);
         rectTransform.anchorMin = new Vector2 (0, 0);
         rectTransform.anchorMax = new Vector2 (0, 0);
 
@@ -85,7 +85,7 @@ public class DebugGraph : MonoBehaviour
             numberOfReadings = maxReadings;
             data.RemoveAt(0);
         }
-        
+
         float yPosition = (rawData / maxRadiation) * graphHeight; // Normalizes data point to graph container
 
         data.Add(yPosition);
@@ -109,7 +109,7 @@ public class DebugGraph : MonoBehaviour
         float mX = (dotPositionA.x + dotPositionB.x) / 2;
         float mY = (dotPositionA.y + dotPositionB.y) / 2;
         //Debug.Log(" line pos: (" + mX + ", " + mY + ") ");
-        rectTransform.anchoredPosition = new Vector3 (mX, mY, 0);//dotPositionA;// + (direction * distance * 0.5f);
+        rectTransform.anchoredPosition = new Vector3 (mX, mY, 0);
         rectTransform.localEulerAngles = new Vector3(0, 0, UtilsClass.GetAngleFromVectorFloat(direction));
     }
 }

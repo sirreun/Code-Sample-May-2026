@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using Unity.Networking.Transport.Relay;
@@ -15,17 +14,17 @@ public class TestRelay : MonoBehaviour
     [SerializeField] private int NumberOfPlayers = 2;
     [SerializeField] private DebugUICanvas debugUICanvas;
     public string JoinCode = "";
-    
+    // Same as for the lobby 
     private async void Start()
     {
-        await UnityServices.InitializeAsync();
+        await UnityServices.InitializeAsync(); // Called async so it doesnt freeze the game waiting for internet
 
         AuthenticationService.Instance.SignedIn += () =>
         {
             Debug.Log("Signed in " + AuthenticationService.Instance.PlayerId);
         };
 
-        await AuthenticationService.Instance.SignInAnonymouslyAsync();
+        await AuthenticationService.Instance.SignInAnonymouslyAsync(); // new account for this user
     }
 
     [ContextMenu("Create Relay")]
@@ -37,12 +36,13 @@ public class TestRelay : MonoBehaviour
 
             JoinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
             //Debug.Log("Join Code: " + JoinCode);
-            debugUICanvas.SetJoinCodeUI(JoinCode);
+            //HostandJoinUI.SetJoinCodeUI(JoinCode);
 
             RelayServerData serverData = new RelayServerData(allocation, "dtls");
             NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(serverData);
             //Debug.Log("Starting Host...");
             NetworkManager.Singleton.StartHost();
+            MissionManager.instance.DeclareMissionStart();
         }
         catch (RelayServiceException e)
         {
@@ -60,6 +60,7 @@ public class TestRelay : MonoBehaviour
             NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(serverData);
 
             NetworkManager.Singleton.StartClient();
+            MissionManager.instance.DeclareMissionStart();
         }
         catch (RelayServiceException e)
         {

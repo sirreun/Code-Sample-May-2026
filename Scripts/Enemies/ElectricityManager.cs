@@ -5,11 +5,11 @@ using System;
 
 public class ElectricityManager : MonoBehaviour
 {
-    public static event Action UpdatedPowerSources; // Scripts that use power source locations subscribe to this event
+    public static ElectricityManager instance { get; private set; }
+
+    public static event Action UpdatedPowerSources;
 
     public List<Transform> PowerSources = new List<Transform>();
-
-    public static ElectricityManager instance { get; private set; }
 
     void Awake()
     {
@@ -26,9 +26,9 @@ public class ElectricityManager : MonoBehaviour
         UpdatedPowerSources?.Invoke();
     }
 
-    public void RemovePowerSource(Transform removedTransform)
+    public void RemovePowerSource(Transform transform)
     {
-        PowerSources.Remove(removedTransform);
+        PowerSources.Remove(transform);
 
         UpdatedPowerSources?.Invoke();
     }

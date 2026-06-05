@@ -5,11 +5,11 @@ using System;
 
 public class AStarManager : MonoBehaviour
 {
+    public static AStarManager instance { get ; private set; }
+
     public static event Action SetEnemySpawns;
 
     public List<ANode> AllNodes;
-
-    public static AStarManager instance { get; private set; }
 
     void Awake()
     {
@@ -75,7 +75,7 @@ public class AStarManager : MonoBehaviour
 
             foreach (ANode connectedNode in currentNode.Connections)
             {
-                float heldGScore = currentNode.GScore + Vector2.Distance(currentNode.transform.position, connectedNode.transform.position); // Vector 2??
+                float heldGScore = currentNode.GScore + Vector2.Distance(currentNode.transform.position, connectedNode.transform.position);
 
                 if (heldGScore < connectedNode.GScore)
                 {
@@ -90,6 +90,7 @@ public class AStarManager : MonoBehaviour
                 }
             }
         }
+
 
         return null;
     }

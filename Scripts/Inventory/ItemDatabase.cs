@@ -2,17 +2,16 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Collections;
-using Unity.Netcode;
-using UnityEngine.Rendering.Universal;
 
 public class ItemDatabase : MonoBehaviour
 {
     public static ItemDatabase instance { get; private set; }
 
-    // Uses GUID from InventoryItem for dictionaries
     private Dictionary<FixedString64Bytes, ItemInformationSO> itemInformationDict = new Dictionary<FixedString64Bytes, ItemInformationSO>();
 
+    // Uses GUID from InventoryItem for dictionary
     private Dictionary<FixedString64Bytes, Transform> items;
+    public Transform Anomoly;
 
     private void Awake()
     {
@@ -23,13 +22,19 @@ public class ItemDatabase : MonoBehaviour
             return;
         }
         instance = this;
+        FindAnomolyInScene();
+    }
+
+    private void FindAnomolyInScene()
+    {
+        GameObject anomoly = GameObject.FindWithTag("Anomoly");
+        Anomoly = anomoly.transform;
     }
 
     private void Start()
     {
         items = new Dictionary<FixedString64Bytes, Transform>();
         InventoryItem[] inventoryItems = FindObjectsOfType<InventoryItem>();
-
         foreach (InventoryItem item in inventoryItems)
         {
             if (TryAddItemTransform(item, true))
@@ -38,7 +43,7 @@ public class ItemDatabase : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning("Item Transform Database init: duplicate item with guid: " + item.GUID_SERVER);
+                Debug.LogWarning("Item Database init: duplicate item with guid: " + item.GUID_SERVER);
             }
 
             if (TryAddItemInformation(item, true))
@@ -47,17 +52,17 @@ public class ItemDatabase : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning("Item Information Database init: duplicate item with guid: " + item.GUID_SERVER);
+                Debug.LogWarning("Item Database init: duplicate item with guid: " + item.GUID_SERVER);
             }
         }
 
-        //Debug.Log("item information in dict: ");
+        Debug.Log("item information in dict: ");
         foreach (FixedString64Bytes guid in itemInformationDict.Keys)
         {
             Debug.Log(guid);
         }
 
-        //Debug.Log("items in list: ");
+        Debug.Log("items in list: ");
         foreach (FixedString64Bytes guid in items.Keys)
         {
             Debug.Log(guid);
@@ -144,7 +149,7 @@ public class ItemDatabase : MonoBehaviour
 
         if (item.ItemInformation == null)
         {
-            Debug.Log("Item object is missing ItemInformationSO");
+            Debug.Log(" item is missing item information");
         }
 
         return false;

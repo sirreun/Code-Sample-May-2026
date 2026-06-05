@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class EatsElectricity : Enemy
+public class EatsElectricity : Enemy // TODO make new enemy template
 {
     protected enum CustomState
     {
@@ -11,7 +11,6 @@ public class EatsElectricity : Enemy
 
     protected override void EnemyStart()
     {
-        // Subscribe to ElectricityManager
         ElectricityManager.UpdatedPowerSources += UpdatingElectricityTracking;
     }
 
@@ -20,9 +19,6 @@ public class EatsElectricity : Enemy
 
     }
 
-    /// <summary>
-    /// EatsElectricity enemy has one custom state: tracking electricity.
-    /// </summary>
     protected override void CustomStateUpdate()
     {
         TransformToDestinationANode();
@@ -30,13 +26,14 @@ public class EatsElectricity : Enemy
 
     public void UpdatingElectricityTracking()
     {
-        trackingTransform = ElectricityManager.instance.ClosestPowerSource(this.gameObject.transform.position, out bool foundPowerSource);
+        if (!IsHost) return;
 
+        trackingTransform = ElectricityManager.instance.ClosestPowerSource(this.gameObject.transform.position, out bool foundPowerSource);
         if (foundPowerSource)
         {
             if (currentState != State.Tracking && currentState != State.Attacking)
             {
-                Debug.Log("Tracking power sources");
+                //Debug.Log("Tracking power sources");
                 ChangeState(State.Custom);
             }   
         }
@@ -47,6 +44,8 @@ public class EatsElectricity : Enemy
                 case State.Custom:
                     ChangeState(State.Wandering);
                     break;
+                default:
+                    break;
             }
         }
     }
@@ -56,9 +55,14 @@ public class EatsElectricity : Enemy
         base.UpdatingTarget();
     }
 
-    public void OnDestroy()
+    public void JustBeforeDeath()
     {
-        // Unsubscribe to ElectrictyManager
         ElectricityManager.UpdatedPowerSources -= UpdatingElectricityTracking;
+    }
+
+    public override void OnDestroy()
+    {
+        ElectricityManager.UpdatedPowerSources -= UpdatingElectricityTracking;
+        base.OnDestroy();
     }
 }

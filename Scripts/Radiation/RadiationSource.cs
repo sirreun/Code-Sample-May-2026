@@ -2,8 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-/// Radiation ranges from 0-243. Some things naturally have a small radiation value
-/// The closer to the origin, the clearer the reading
 public class RadiationSource : MonoBehaviour
 {
     public CapsuleCollider radiation;

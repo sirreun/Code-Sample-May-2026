@@ -11,5 +11,5 @@ public class WeatherDataSO : ScriptableObject
     public int Weight = 0;
     public bool HasTemperatureRequirement = false;
     public int TemperatureRequirement = 0;
-    public List<WeatherDataSO> PossibleNextWeathers;
+    public WeatherDataSO[] PossibleNextWeathers;
 }

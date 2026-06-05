@@ -15,7 +15,6 @@ public class ANode : MonoBehaviour
         return GScore + HScore;
     }
 
-#if UNITY_EDITOR
     private void OnDrawGizmos()
     {
         Gizmos.color = Color.blue;
@@ -28,5 +27,4 @@ public class ANode : MonoBehaviour
             }
         }
     }
-#endif
 }

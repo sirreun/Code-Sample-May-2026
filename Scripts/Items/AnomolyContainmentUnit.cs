@@ -8,6 +8,16 @@ public class AnomolyContainmentUnit : MonoBehaviour
     public float InsideContainerPercent = 0.8f;
     private bool containsAnomoly = false;
 
+    public bool ContainsAnomoly()
+    {
+        return containsAnomoly;
+    }
+
+    public void SetContainsAnomoly(bool value)
+    {
+        containsAnomoly = value;
+    }
+
     public bool PickUpAnomoly(Anomoly anomoly)
     {
         if (!containsAnomoly)
@@ -16,6 +26,7 @@ public class AnomolyContainmentUnit : MonoBehaviour
             GameObject radiationSource = anomolyGameObject.transform.GetChild(0).gameObject;
             Destroy(radiationSource);
             
+            // Get dimensions of anomoly
             Vector3 maxDimenisions = anomoly.MaxDimenisions;
             Destroy(anomoly);
 
@@ -56,12 +67,10 @@ public class AnomolyContainmentUnit : MonoBehaviour
                 multiplier = acuInsideDimensions.y / maxDimenisions.y;
             }
 
-            anomolyGameObject.transform.localScale *= multiplier;
-            anomolyGameObject.transform.position = this.transform.position;
-            anomolyGameObject.transform.rotation = this.transform.rotation;
-
-            // TODO: needs to be done by the server
-            anomolyGameObject.transform.SetParent(this.transform);
+            InventoryNetworkUtilities.instance.ChangeAnomalyTransform_TO_SERVER(multiplier, 
+                this.transform.position, 
+                this.transform.rotation, 
+                GetComponent<InventoryItem>().GUID_SERVER.Value);
 
             containsAnomoly = true;
             return true;

@@ -16,8 +16,7 @@ public class DamagingEntity : MonoBehaviour
         if (!attackTimeOut)
         {
             StartCoroutine(AttackTimer());
-            player.TakeDamage(attackDamage);
-
+            player.TakeDamage_TO_SERVER(attackDamage);
             if (player._HealthStatus == Damageable.HealthStatus.Dead)
             {
                 return true;

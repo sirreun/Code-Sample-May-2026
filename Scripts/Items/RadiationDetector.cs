@@ -1,10 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using static UnityEngine.UI.GridLayoutGroup;
 
-// TODO: Create a funtion to add a new source to the list after a scene has begun
-// TODO: Add support for when a source blocking material is present
 
 public class RadiationDetector : InventoryInteractable
 {
@@ -12,13 +9,13 @@ public class RadiationDetector : InventoryInteractable
     [SerializeField] private LayerMask mask; // Should always be Radiation
     private Vector3 playerPosition;
 
-    public float noiseGeneration = 0.02f;
-    public float readingReliability = 85f;
-    public float detectionDistance = 15f;
+    public float noiseGeneration = 0.02f; // by default is 2%, how much noise is generated
+    public float readingReliability = 85f; // by default is 85%, how reliable the detector readings are
+    public float detectionDistance = 15f; // by default is 200
     public float ReadingFrequency = 0.1f;
     private bool waitingForReading = false;
     private const float maxRadiationStrength = 243f;
-    private float sourceIncrease = 1.05f; // How much a reading increases by when you are facing a source
+    private float sourceIncrease = 1.05f; // How much a reading increases by when you are looking at it
 
     private float reading;
 
@@ -53,7 +50,7 @@ public class RadiationDetector : InventoryInteractable
             return;
         }
 
-        ownerPlayerUI.HideRadiationGraph();
+        inventoryItem.ownerPlayerUI.HideRadiationGraph();
     }
     
     /// <summary>
@@ -66,7 +63,7 @@ public class RadiationDetector : InventoryInteractable
             return;
         }
 
-        ownerPlayerUI.ShowRadiationGraph();
+        inventoryItem.ownerPlayerUI.ShowRadiationGraph();
     }
 
     private void GetRadiationReading()
@@ -76,16 +73,17 @@ public class RadiationDetector : InventoryInteractable
             return;
         }
 
-        reading = 0f;
+        reading = 0f; // reset value
 
         // Determine player distance from all radiation sources, and find which ones are near enough to the player.
         float distance;
-        playerPosition = ownerPlayerUI.transform.position;
-        cam = ownerPlayerUI._Camera;
+        playerPosition = inventoryItem.ownerPlayerUI.transform.position;
+        cam = inventoryItem.ownerPlayerUI._Camera;
         foreach (RadiationSource source in RadiationManager.instance.Sources)
         {
             Vector3 sourcePosition = source.GetPosition();
 
+            // 3D distance formula
             distance = Mathf.Pow(sourcePosition.x - playerPosition.x, 2) + Mathf.Pow(sourcePosition.y - playerPosition.y, 2) + Mathf.Pow(sourcePosition.z - playerPosition.z, 2);
             distance = Mathf.Sqrt(distance);
 
@@ -116,9 +114,9 @@ public class RadiationDetector : InventoryInteractable
             {
                 // Get radiation reading
                 RadiationSource source = hitInformation.collider.GetComponent<RadiationSource>();
-                //float totalDistance = source.radiationRadius + hitInformation.distance; // TODO: Could use a radition dignal manager to check how far the player is from radition sources... perhaos would work better
 
-                // Determine the angle from which you are looking away from the source. Use this value to determine the final sourceIncrease modifier.
+                // Determine the angle from which you are looking away from the source. Use this value to make the sourceIncrease modifier.
+                // 3D distance formula
                 Vector3 sourcePosition = source.GetPosition();
                 distance = Mathf.Pow(sourcePosition.x - playerPosition.x, 2) + Mathf.Pow(sourcePosition.y - playerPosition.y, 2) + Mathf.Pow(sourcePosition.z - playerPosition.z, 2);
                 distance = Mathf.Sqrt(distance);
@@ -170,7 +168,7 @@ public class RadiationDetector : InventoryInteractable
         }
 
         //Debug.Log("Radiation Reading: " + reading);
-        ownerPlayerUI.GetRadiationGraph().AddData(reading);
+        inventoryItem.ownerPlayerUI.GetRadiationGraph().AddData(reading);
     }
 
     private void DebugChangeColor()

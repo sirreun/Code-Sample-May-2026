@@ -32,6 +32,7 @@ public class PlayerInteract : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        // Interactable UI is cleared when not looking at an interactable.
         playerUI.ClearText();
 
         UpdateDefaultInteractions();
@@ -54,13 +55,14 @@ public class PlayerInteract : MonoBehaviour
                         {
                             if (hitInformation.collider.gameObject == this.gameObject)
                             {
+                                // Can't damage self
                                 return; 
                             }
                             //Debug.Log("Hitting damageable entity");
                             Damageable damageable = hitInformation.collider.GetComponent<Damageable>();
                             if (inputManager.AttackTriggered())
                             {
-                                damageable.TakeDamage(weapon.Damage);
+                                damageable.TakeDamage_TO_SERVER(weapon.Damage);
                             }
                         }
                     }
@@ -73,7 +75,7 @@ public class PlayerInteract : MonoBehaviour
     {
         Ray ray = new Ray(cam.transform.position, cam.transform.forward);
         RaycastHit hitInformation;
-        // Only continues to if statement if the ray hits something.
+        
         if (Physics.Raycast(ray, out hitInformation, interactDistance, interactMask))
         {
             if (hitInformation.collider.GetComponent<Interactable>() != null)
@@ -83,14 +85,11 @@ public class PlayerInteract : MonoBehaviour
                 InventoryItem inventoryItem = hitInformation.collider.GetComponent<InventoryItem>();
                 if (inventoryItem != null)
                 {
-                    if (!inventoryItem.IsPickedUp_SERVER.Value)
+                    if (playerUI.UpdateText(inventoryItem, interactable))
                     {
-                        playerUI.UpdateText(interactable);
-
-
+                        //Debug.Log("able to interact with this object");
                         if (inputManager.InteractTriggered())
                         {
-                            // TODO: have options for if interact is server-side or client side
                             interactable.Interact(this);
                         }
                     }
@@ -98,11 +97,10 @@ public class PlayerInteract : MonoBehaviour
                 else
                 {
                     playerUI.UpdateText(interactable);
-
+                    //Debug.Log("interactable does not have an inventory item");
 
                     if (inputManager.InteractTriggered())
                     {
-                        // TODO: have options for if interact is server-side or client side
                         interactable.Interact(this);
                     }
                 }

@@ -8,6 +8,7 @@ public class RulesetData : ScriptableObject
      public string r_name;
 
      [SerializeField] public List<TagConstraint> ruleset;
+ 
 
      public RulesetData(List<TagConstraint> iRuleset, string iName = "new")
      {

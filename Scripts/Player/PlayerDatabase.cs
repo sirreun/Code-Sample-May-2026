@@ -8,7 +8,7 @@ public class PlayerDatabase : NetworkBehaviour
 {
     public static PlayerDatabase instance { get; private set; }
 
-    private NetworkList<ulong> currentPlayers_SERVER;
+    public NetworkList<ulong> currentPlayers_SERVER;
     private Dictionary<ulong, Transform> players = new Dictionary<ulong, Transform>();
 
     [SerializeField] private TextMeshProUGUI playerListUI;
@@ -31,11 +31,17 @@ public class PlayerDatabase : NetworkBehaviour
     public override void OnDestroy()
     {
         if (!IsOwner) return;
-
-        base.OnDestroy();
+        
         instance = null;
-        currentPlayers_SERVER.OnListChanged -= NetworkListChanged;
         currentPlayers_SERVER.Dispose();
+        base.OnDestroy();
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        NetworkManager.Singleton.OnConnectionEvent -= ParseConnectionEvents;
+        currentPlayers_SERVER.Dispose();
+        base.OnNetworkDespawn();
     }
 
     public override void OnNetworkSpawn()
@@ -46,38 +52,67 @@ public class PlayerDatabase : NetworkBehaviour
                 NetworkVariableReadPermission.Everyone,
                 NetworkVariableWritePermission.Server);
         }
-        else if (IsHost)
-        {
-            currentPlayers_SERVER.Add(OwnerClientId);
-        }
-
         currentPlayers_SERVER.OnListChanged += NetworkListChanged;
 
-        if (IsOwner)
+        AddPlayerToNetworkListServerRpc(OwnerClientId);
+
+        if (IsHost)
         {
-            Player ownerPlayer = null;
-            Player[] playersInScene = FindObjectsOfType<Player>();
-
-            foreach (Player player in playersInScene) 
-            {
-                if (player.ID == OwnerClientId)
-                {
-                    ownerPlayer = player;
-                }
-            }
-
-            if (ownerPlayer != null)
-            {
-                TryAddPlayerToDictionary(ownerPlayer);
-            }
-            else
-            {
-                Debug.LogError("Player not found for owner id: " + OwnerClientId);
-            }
+            NetworkManager.Singleton.OnConnectionEvent += ParseConnectionEvents;
+        }
+        else
+        {
+            NetworkManager.Singleton.OnClientDisconnectCallback += GameSceneManager.instance.ReturnToMenu;
         }
     }
 
-    public void AddPlayerToNetworkList(ulong id)
+    public void ParseConnectionEvents(NetworkManager networkManager, ConnectionEventData connectionEventData)
+    {
+        switch (connectionEventData.EventType)
+        {
+            case ConnectionEvent.ClientDisconnected:
+                TryRemovePlayerFromServerList_TO_SERVER(connectionEventData.ClientId);
+                break;
+            case ConnectionEvent.ClientConnected:
+                AddPlayerToNetworkList_TO_SERVER(connectionEventData.ClientId);
+                break;
+        }
+    }
+
+    public bool GetPlayerByIDOnNetworkSpawn(ulong id, out Transform playerTransform)
+    {
+        playerTransform = null;
+        var foundPlayers = FindObjectsByType<Player>(FindObjectsSortMode.None);
+
+        foreach (var player in foundPlayers)
+        {
+            Player playerComponent = player.GetComponent<Player>();
+            
+            if (playerComponent != null)
+            {
+                if (playerComponent.OwnerClientId == id)
+                {
+                    playerTransform = player.transform;
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public int GetNumberOfPlayers()
+    {
+        return players.Count;
+    }
+
+    public void AddPlayerToNetworkList_TO_SERVER(ulong id)
+    {
+        AddPlayerToNetworkListServerRpc(id);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void AddPlayerToNetworkListServerRpc(ulong id)
     {
         if (currentPlayers_SERVER == null)
         {
@@ -87,7 +122,7 @@ public class PlayerDatabase : NetworkBehaviour
         if (!currentPlayers_SERVER.Contains(id))
         {
             currentPlayers_SERVER.Add(id);
-            Debug.Log("Added player " + id + " to network list");
+            //Debug.Log("Added player " + id + " to network list");
         }
         else
         {
@@ -105,6 +140,7 @@ public class PlayerDatabase : NetworkBehaviour
         Player[] playersInScene = FindObjectsOfType<Player>();
         players.Clear();
 
+        // Use new list to make sure all player transforms added in dictionary
         foreach (ulong id in currentPlayers_SERVER)
         {
             if (TryGetPlayerFromDictionary(id, out Transform playerTransform))
@@ -147,7 +183,7 @@ public class PlayerDatabase : NetworkBehaviour
         else
         {
             players.Add(player.ID, player.transform);
-            Debug.Log("Added player with id: " + player.ID);
+            //Debug.Log("Added player with id: " + player.ID);
         }
     }
 
@@ -175,10 +211,17 @@ public class PlayerDatabase : NetworkBehaviour
         playerListUI.text = uiText;
     }
 
-    [ServerRpc(RequireOwnership = false)]
-    public void TryRemovePlayerFromDatabaseServerRpc(ulong player)
+    public void TryRemovePlayerFromServerList_TO_SERVER(ulong player)
     {
-        if (!IsOwnedByServer) return;
+        if (!IsHost) return;
+        //Debug.Log("1. try remove player calling server");
+        TryRemovePlayerFromDatabaseServerRpc(player);
+    }
+
+    [ServerRpc(RequireOwnership = true)]
+    private void TryRemovePlayerFromDatabaseServerRpc(ulong player)
+    {
+        //Debug.Log("2. is not owned by server, attempting to remove from playerdb");
 
         if (currentPlayers_SERVER.Contains(player))
         {
@@ -186,6 +229,5 @@ public class PlayerDatabase : NetworkBehaviour
         }
 
         TryRemovePlayerFromDictionary(player);
-        UpdatePlayerListUI();
     }
 }

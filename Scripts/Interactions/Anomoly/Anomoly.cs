@@ -15,27 +15,13 @@ public class Anomoly : Interactable
     {
         InventoryManager inventoryManager = player.GetComponent<InventoryManager>();
 
-        // check if player is holding ACU
         if (!inventoryManager.HoldingItem())
         {
             return;
         }
         AnomolyContainmentUnit ACU = inventoryManager.GetCurrentSelectedItem().GetComponent<AnomolyContainmentUnit>();
-        if (ACU)
-        {
-            if (ACU.PickUpAnomoly(this))
-            {
-                // TODO: tell mission manager that anomoly has be retrieved
-            }
-        }
     }
 
-    /// <summary>
-    /// Overridden from Interactable class. Anomolies can only be picked up when the player is currently holding
-    /// an Anomoly Containment Unit (ACU).
-    /// </summary>
-    /// <param name="player"></param>
-    /// <returns></returns>
     public override bool ConditionMet(PlayerInteract player)
     {
         InventoryManager inventoryManager = player.GetComponent<InventoryManager>();

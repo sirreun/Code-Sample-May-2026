@@ -2,11 +2,12 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
+using Unity.Netcode;
 
-public class Damageable : MonoBehaviour
+public class Damageable : NetworkBehaviour
 {
     public int MaxHealth;
-    public int Health;
+    public NetworkVariable<int> Health;
     public bool CanBleed = false;
     public int BleedingThreshold = 30;
     [HideInInspector]
@@ -23,7 +24,11 @@ public class Damageable : MonoBehaviour
 
     void Awake()
     {
-        Health = MaxHealth;
+        Health = new NetworkVariable<int> (MaxHealth,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
+        Health.OnValueChanged += OnHealthChanged_CLIENT;
 
         if (this.gameObject.layer != LayerMask.NameToLayer("Damageable"))
         {
@@ -31,21 +36,37 @@ public class Damageable : MonoBehaviour
         }
     }
 
-    public void TakeDamage(int amount)
+    public override void OnNetworkDespawn()
     {
-        Health -= amount;
+        Health.OnValueChanged -= OnHealthChanged_CLIENT;
+    }
+
+    public void TakeDamage_TO_SERVER(int amount)
+    {
+        TakeDamageServerRpc(amount);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void TakeDamageServerRpc(int amount)
+    {
+        Health.Value -= amount;
+    }   
+
+    protected void OnHealthChanged_CLIENT(int previousHealth, int newHealth)
+    {
         CheckHealth();
         ChangeSpeed();
     }
 
+
     public void CheckHealth()
     {
-        if (Health <= 0 && !DebugCantDie)
+        if (Health.Value <= 0 && !DebugCantDie)
         {
             _HealthStatus = HealthStatus.Dead;
             OnDeathFunction.Invoke();
         }
-        else if (Health < BleedingThreshold)
+        else if (Health.Value < BleedingThreshold)
         {
             _HealthStatus = HealthStatus.Bleeding;
         }

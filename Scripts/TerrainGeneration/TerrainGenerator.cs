@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 using Unity.Netcode;
-using UnityEngine.Rendering.Universal;
 
 public class TerrainGenerator : NetworkBehaviour
 {
@@ -13,7 +12,7 @@ public class TerrainGenerator : NetworkBehaviour
     public int RulesetDataIndex;
     public int Width;
     public int Height;
-    public Vector3 SpawnCoordinates; // TODO: created network variable
+    public Vector3 SpawnCoordinates;
     public NetworkList<int> TerrainDataIndicies_SERVER;
     public float ObjectWidth;
     public GameObject ANodePrefab;
@@ -24,7 +23,7 @@ public class TerrainGenerator : NetworkBehaviour
 
     private ModuleSO[,] terrainData;
 
-    public static event Action TerrainGenerated; // Must be subscribed to in Awake()
+    public static event Action TerrainGenerated;
 
     void Awake()
     {
@@ -34,13 +33,13 @@ public class TerrainGenerator : NetworkBehaviour
                 NetworkVariableWritePermission.Server); 
     }
 
-    // TODO: Later: in games, this will be spawned after network
     public override void OnNetworkSpawn()
     {
         FindAllRulesets(out Rulesets);
 
         if (IsHost)
         {
+            //Debug.Log("Determining map terrain");
             TerrainDataIndicies_SERVER.Add(Width);
             TerrainDataIndicies_SERVER.Add(Height);
             GenerateNewTerrain();
@@ -53,9 +52,23 @@ public class TerrainGenerator : NetworkBehaviour
             }
             else
             {
+                //Debug.Log("Placing generated map terrain");
                 GenerateNetworkTerrain();
             }
+            
         }
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        TerrainDataIndicies_SERVER.Dispose();
+        base.OnNetworkDespawn();
+    }
+
+    public override void OnDestroy()
+    {
+        TerrainDataIndicies_SERVER.Dispose();
+        base.OnDestroy();
     }
 
     private List<ModuleSO> GetRuleset()
@@ -76,8 +89,8 @@ public class TerrainGenerator : NetworkBehaviour
         if (On)
         {
             terrainData = WaveFunctionCollapse.Generate(ruleset, Width, Height);
-            debugUI.AddLog("Terrain data generated for a " + terrainData.GetLength(0) + " by " + terrainData.GetLength(1) + " grid.");
-            Debug.Log(terrainData.GetLength(0) + " by " + terrainData.GetLength(1) + " grid.");
+            //debugUI.AddLog("Terrain data generated for a " + terrainData.GetLength(0) + " by " + terrainData.GetLength(1) + " grid.");
+            //Debug.Log(terrainData.GetLength(0) + " by " + terrainData.GetLength(1) + " grid.");
             PlaceTerrain(reverseModuleDictionary);
         }
     }
@@ -92,8 +105,8 @@ public class TerrainGenerator : NetworkBehaviour
             terrainData = new ModuleSO[Width, Height];
             TerrainIndiciesToModuleSO();
 
-            debugUI.AddLog("Terrain data generated for a " + terrainData.GetLength(0) + " by " + terrainData.GetLength(1) + " grid.");
-            Debug.Log(terrainData.GetLength(0) + " by " + terrainData.GetLength(1) + " grid.");
+            //debugUI.AddLog("Terrain data generated for a " + terrainData.GetLength(0) + " by " + terrainData.GetLength(1) + " grid.");
+            //Debug.Log(terrainData.GetLength(0) + " by " + terrainData.GetLength(1) + " grid.");
             if (terrainData[0, 0] == null)
             {
                 Debug.LogWarning("2. before place terrain func: null data");
@@ -106,11 +119,11 @@ public class TerrainGenerator : NetworkBehaviour
     {
         List<ModuleSO> ruleset = GetRuleset();
 
-        Debug.Log("Terrain ruleset used: ");
+        /*Debug.Log("Terrain ruleset used: ");
         foreach (ModuleSO rule in ruleset)
         {
             Debug.Log("rule " + rule.Name);
-        }
+        }*/
 
         //Debug.Log("Terrain: network list count: " + TerrainDataIndicies_SERVER.Count);
 
@@ -118,11 +131,11 @@ public class TerrainGenerator : NetworkBehaviour
         {
             (int, int) coordinates = GetCoordinateFromIndex(i - 2);
 
-            Debug.Log(" i = " + i + ", modified = " + (i - 2));
-            if (coordinates.Item1 > 18 ||  coordinates.Item2 > 18)
+            //Debug.Log(" i = " + i + ", modified = " + (i - 2));
+            /*if (coordinates.Item1 > 18 ||  coordinates.Item2 > 18)
             {
-                Debug.Log(">>coordinates: " + coordinates.ToString());
-            }
+                //Debug.Log(">>coordinates: " + coordinates.ToString());
+            }*/
             
             terrainData[coordinates.Item1, coordinates.Item2] = ruleset[TerrainDataIndicies_SERVER[i]];
 
@@ -133,13 +146,13 @@ public class TerrainGenerator : NetworkBehaviour
 
             if (terrainData[coordinates.Item1, coordinates.Item2] == null)
             {
-                Debug.Log("houston we have aprobelem");
+                Debug.LogWarning("houston we have aprobelem");
             }
         }
 
         if (terrainData[0,0] == null)
         {
-            Debug.LogWarning("1. terrain allocaiton func: null data at 0,0");
+            //Debug.LogWarning("1. terrain allocaiton func: null data at 0,0");
         }
 
         Debug.Log(" terrain data count columns: " + terrainData.Length);
@@ -181,8 +194,7 @@ public class TerrainGenerator : NetworkBehaviour
                     TerrainDataIndicies_SERVER.Add(reverseModuleDictionary[terrainData[i, j]]);
                 }
                 
-                // Note that this will change for obstacles.
-                // This will mess up the getneighboring nodes function, so will need to check if the node exists
+                // Note that this will change for certain prefabs, since they might be obstacles
                 ANode newNode = Instantiate(ANodePrefab, new Vector3(position.x, position.y + terrainData[i,j].Prefab.transform.localScale.y, position.z), Quaternion.identity, ANodeParent).GetComponent<ANode>(); // TODO: determine if need to make the width smaller depending on tile size later
                 AllNodes.Add(newNode);
             }
@@ -194,7 +206,7 @@ public class TerrainGenerator : NetworkBehaviour
             AllNodes[i].Connections = GetNeighboringNodes(i);
         }
 
-        //debugUI.AddLog("ANodes list has " + AllNodes.Count + " nodes.");
+        debugUI.AddLog("ANodes list has " + AllNodes.Count + " nodes.");
 
         TerrainGenerated?.Invoke();
     }
@@ -242,8 +254,8 @@ public class TerrainGenerator : NetworkBehaviour
 
     private (int, int) GetCoordinateFromIndex(int index)
     {
-        int col = index % Width; 
-        int row = index / Height; 
+        int col = index % Width;
+        int row = index / Height;
 
         return (col, row);
     }
@@ -255,8 +267,21 @@ public class TerrainGenerator : NetworkBehaviour
 
     private Vector3 ConvertGridSpaceToWorldSpace(int column, int row)
     {
-        float x = SpawnCoordinates.x + (column * (ObjectWidth));
-        float z = SpawnCoordinates.z + (row * (ObjectWidth));
+        float x;
+        float z;
+
+        if (IsHost)
+        {
+            x = SpawnCoordinates.x + (column * (ObjectWidth));
+            z = SpawnCoordinates.z + (row * (ObjectWidth));
+        }
+        else
+        {
+            // Rotate 90 degrees for client
+            x = SpawnCoordinates.z + (row * (ObjectWidth));
+            z = SpawnCoordinates.x + (column * (ObjectWidth));
+        }
+        
         return new Vector3(x,0,z);
     }
 

@@ -7,7 +7,7 @@ public class InventoryManager : MonoBehaviour
 {
     public List<GameObject> inventory = new List<GameObject>();
 
-    private int currentInventorySlot = 1; // Ranges from 1 to maxInventoryItems.
+    private int currentInventorySlot = 1; // Ranges from 1 to 5. Defaults to slot one.
     private int maxInventoryItems = 5;
     [SerializeField] private Transform playerHandTransform;
     private float infrontOfPlayerModifier = 1f;
@@ -16,7 +16,6 @@ public class InventoryManager : MonoBehaviour
     [SerializeField] private List<GameObject> itemUI;
     [SerializeField] private PlayerUI playerUI;
 
-    private InputManager inputManager;
     private Player player;
 
     // Start is called before the first frame update
@@ -24,7 +23,6 @@ public class InventoryManager : MonoBehaviour
     {
         InitializeInventoryUI();
         playerUI = GetComponent<PlayerUI>();
-        inputManager = GetComponent<InputManager>();
         player = GetComponent<Player>();
     }
 
@@ -46,6 +44,20 @@ public class InventoryManager : MonoBehaviour
             return false;
         }
         return true;
+    }
+
+    public bool HasAnomoly()
+    {
+        foreach (GameObject item in inventory)
+        {
+            AnomolyContainmentUnit ACU = item.GetComponent<AnomolyContainmentUnit>();
+            if (ACU != null)
+            {
+                return ACU.ContainsAnomoly();
+            }
+        }
+
+        return false;
     }
 
     public InventoryInteractable GetCurrentItemInfo()
@@ -79,9 +91,15 @@ public class InventoryManager : MonoBehaviour
 
     #endregion
 
+
+    /// <summary>
+    /// Tries to add the gameobject to the inventory.
+    /// </summary>
+    /// <param name="itemObject"></param>
+    /// <returns>Whether the item was able to be added to the inventory.</returns>
     public bool AddItemToInventory(GameObject itemObject)
     {
-        if (itemObject == null)
+        if(itemObject == null)
         {
             Debug.LogWarning("Item " + itemObject.gameObject.name + " does not have an InventoryItem script attached to it. Please add it.");
             UpdateInventoryText();
@@ -90,8 +108,8 @@ public class InventoryManager : MonoBehaviour
 
         if (inventory.Count < maxInventoryItems)
         {
-            // NOTE: The newest object always is added at the end, which means that when an item is dropped everything is moved up one
             InventoryItem inventoryItem = itemObject.GetComponent<InventoryItem>();
+            InventoryInteractable inventoryInteractable = itemObject.GetComponent<InventoryInteractable>();
 
             InventoryNetworkUtilities.instance.SetParentTransform_TO_SERVER(inventoryItem.GUID_SERVER.Value, player.ID);
             itemObject.GetComponent<Collider>().isTrigger = true;
@@ -107,14 +125,14 @@ public class InventoryManager : MonoBehaviour
             {
                 itemObject.SetActive(false);
             }
+
+            inventoryItem.SetOwner(playerUI);
             
-            // Select item (and call functions) if current selected item
             if (currentInventorySlot == inventory.Count)
             {
-                InventoryInteractable currentItem = GetItemInfoFromIndex(currentInventorySlot - 1);
-                if (currentItem)
+                if (inventoryInteractable)
                 {
-                    currentItem.PickedUp(playerUI);
+                    inventoryInteractable.ItemSelected();
                 }
             }
 
@@ -138,21 +156,23 @@ public class InventoryManager : MonoBehaviour
 
     private void RemoveItemFromInventory(int index)
     {
-        InventoryInteractable currentItem = GetItemInfoFromIndex(index);
-        if (currentItem)
+        InventoryItem currentItem = inventory[index].GetComponent<InventoryItem>();
+        InventoryInteractable currentInteractable = GetItemInfoFromIndex(index);
+        if (currentInteractable)
         {
-            currentItem.ItemUnselected();
+            currentInteractable.ItemUnselected();
         }
-        currentItem.Dropped();
+        currentItem.ClearOwner();
 
         if (currentInventorySlot > 0 && currentInventorySlot <= maxInventoryItems)
         {
+            // Only drop items and not empty slots.
             if (inventory.Count >= currentInventorySlot && inventory.Count != 0)
             {
                 //Debug.Log("Dropping Item...");
+                // Remove item from inventory list
                 //string droppedObjectName = inventory[currentInventorySlot - 1].gameObject.name; 
 
-                // Drop object in front of player
                 Vector3 newPosition = this.gameObject.GetComponent<PlayerInteract>().RaycastEndPoint(infrontOfPlayerModifier);
 
                 GameObject itemObject = inventory[currentInventorySlot - 1].gameObject;
@@ -180,9 +200,8 @@ public class InventoryManager : MonoBehaviour
         }
     }
 
-    /// Given -1 or 1 determines if we are adding or subtracting the current inventory slot.
+    /// Given -1 or +1 determines if we are adding or subtracting the current inventory slot.
     /// Returns the new current inventory slot.
-    /// Used only for navigationUI (and not the number keys)
     public int ChangeCurrentInventorySlot(float direction)
     {
         InventoryInteractable previousItem = GetItemInfoFromIndex(currentInventorySlot - 1);
@@ -201,7 +220,6 @@ public class InventoryManager : MonoBehaviour
         if (direction > 0)
         {
             // Scrolls Down.
-            // Increases current inventory slot by one.
             if (currentInventorySlot == maxInventoryItems)
             {   
                 SelectItem(1);
@@ -216,7 +234,6 @@ public class InventoryManager : MonoBehaviour
         else
         {
             // Scrolls Up.
-            // Decreases current inventory slot by one.
             if (currentInventorySlot == 1)
             {
                 SelectItem(maxInventoryItems);
@@ -294,7 +311,7 @@ public class InventoryManager : MonoBehaviour
         }
     }
 
-    /// INVENTORY UI ANIMATIONS ///
+    #region /// INVENTORY UI ANIMATIONS ///
     private void InitializeInventoryUI()
     {
         currentInventorySlot = 1;
@@ -374,6 +391,7 @@ public class InventoryManager : MonoBehaviour
             }
         }
     }
+    #endregion
 
     // Calls the item interact function for the currently held object
     public void ItemInteract()

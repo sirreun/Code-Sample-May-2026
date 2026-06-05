@@ -8,6 +8,6 @@ public class Weapon : MonoBehaviour
 
     public void AnimateAttack()
     {
-        // TODO: call animator through an unity event
+        //TODO: Get animator maanger and call function
     }
 }

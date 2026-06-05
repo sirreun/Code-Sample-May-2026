@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
 using Unity.Collections;
-using Unity.Netcode.Components;
-using Unity.Multiplayer.Samples.Utilities.ClientAuthority;
 
-/// This item class deals with the funcitonality of the item when a player has it in inventory
+/// <summary>
+/// This side of the item class deals with the funcitonality of the item being added and removed from a player inventory.
+/// </summary>
 [RequireComponent(typeof(NetworkObject))]
 [RequireComponent(typeof(Rigidbody))]
 public class InventoryItem : NetworkBehaviour
@@ -20,6 +20,8 @@ public class InventoryItem : NetworkBehaviour
     public Vector3 itemScale;
     public Vector3 heldItemScale;
     public Vector3 heldItemRotation;
+
+    public PlayerUI ownerPlayerUI { get; private set; }
 
 #if UNITY_EDITOR
     [ContextMenu("Save Held Rotation")]
@@ -67,5 +69,28 @@ public class InventoryItem : NetworkBehaviour
         {
             GUID_SERVER.Value = guid;
         }
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        base.OnNetworkDespawn();
+        //Destroy(gameObject);
+    }
+
+    /// <summary>
+    /// Called by inventory interactable.
+    /// </summary>
+    /// <param name="playerUI"></param>
+    public void SetOwner(PlayerUI playerUI)
+    {
+        ownerPlayerUI = playerUI;
+    }
+
+    /// <summary>
+    /// Called by Inventory Manager.
+    /// </summary>
+    public void ClearOwner()
+    {
+        ownerPlayerUI = null;
     }
 }

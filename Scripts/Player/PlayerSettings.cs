@@ -4,6 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using System;
+using System.Threading.Tasks;
 
 public class PlayerSettings : MonoBehaviour
 {
@@ -29,6 +30,8 @@ public class PlayerSettings : MonoBehaviour
     [SerializeField] private TMP_Dropdown screenSizeDropdown;
     private bool isFullscreen = true;
 
+    [SerializeField] private int frameRate = 60;
+
     private enum ScreenSize
     {
         FourEightyPSixteenNine = 0,
@@ -47,7 +50,10 @@ public class PlayerSettings : MonoBehaviour
         InitializeMouseYSensitivityUI();
 
         toggleFullscreenButtonTextMesh.text = "Fullscreen";
+        // Select drop down
         DetermineScreenSize();
+
+        Application.targetFrameRate = frameRate;
         
     }
 
@@ -71,7 +77,7 @@ public class PlayerSettings : MonoBehaviour
 
     public void OnMouseXInputFieldChanged()
     {
-        float newMouseXSens = Int32.Parse(mouseXInputField.text); //Note: no need to check because input field does not take non integers
+        float newMouseXSens = Int32.Parse(mouseXInputField.text); // no need to check because input field does not take non integers
 
         if (newMouseXSens > maxXsensitivity) 
         {
@@ -106,7 +112,7 @@ public class PlayerSettings : MonoBehaviour
 
     public void OnMouseYInputFieldChanged()
     {
-        float newMouseYSens = Int32.Parse(mouseYInputField.text); //Note: no need to check because input field does not take non integers
+        float newMouseYSens = Int32.Parse(mouseYInputField.text); // no need to check because input field does not take non integers
 
         if (newMouseYSens > maxYsensitivity)
         {
@@ -169,7 +175,7 @@ public class PlayerSettings : MonoBehaviour
         screenSizeDropdown.SetValueWithoutNotify(index);
     }
 
-    public void ToggleFullscreen() //TODO: doesnt work for mac
+    public void ToggleFullscreen()
     {
         isFullscreen = !isFullscreen;
 
@@ -180,12 +186,12 @@ public class PlayerSettings : MonoBehaviour
     {
         if (isFullscreen)
         {
-            Screen.SetResolution(width, height, FullScreenMode.FullScreenWindow);
             toggleFullscreenButtonTextMesh.text = "Fullscreen";
+            Screen.SetResolution(width, height, FullScreenMode.FullScreenWindow);
         }
         else
         {
-            Screen.SetResolution(width, height, false);
+            Screen.SetResolution(width, height, FullScreenMode.Windowed);
             toggleFullscreenButtonTextMesh.text = "Windowed";
         }
     }
@@ -197,6 +203,7 @@ public class PlayerSettings : MonoBehaviour
         switch (newScreenSize) 
         {
             case ScreenSize.FourEightyPSixteenNine:
+                //Debug.Log("changing to 480p");
                 SetNewScreenResolution(848, 480);
                 break;
             case ScreenSize.SevenTwentyPSixteenNine:
@@ -209,7 +216,7 @@ public class PlayerSettings : MonoBehaviour
                 SetNewScreenResolution(2560, 1440);
                 break;
             case ScreenSize.DetectedMonitorSize:
-                SetNewScreenResolution(Display.main.systemWidth, Display.main.systemHeight);
+                SetNewScreenResolution(Display.main.systemWidth, Display.main.systemHeight); // TODO: not sure if this works for mac
                 break;
         }
     }

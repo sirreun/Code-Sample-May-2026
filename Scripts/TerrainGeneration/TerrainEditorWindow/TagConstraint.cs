@@ -44,7 +44,7 @@ public class TagConstraint : ScriptableObject
     public class NameWeightPair
     {
         public string Name;
-        public int Weight;
+        public int Weight; // consider using decmals for weights and they all add up to one... good for math, bad for inputing
 
         public NameWeightPair(string pairName = "new", int weight = 1)
         {

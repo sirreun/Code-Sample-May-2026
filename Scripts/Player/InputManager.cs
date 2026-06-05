@@ -2,7 +2,10 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.InputSystem;
+
+/// <summary>
+/// The player's main connection and initing to the server.
+/// </summary>
 
 public class InputManager : NetworkBehaviour
 {
@@ -86,9 +89,7 @@ public class InputManager : NetworkBehaviour
         }
         else
         {
-            // Disable other players' input on your local game
             playerInput.Disable();
-            // Enable(false);
 
             // Disable Camera and UI for other players
             playerUI._Camera.tag = "OtherCamera";
@@ -101,17 +102,15 @@ public class InputManager : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         if (!IsOwner) return;
+        if (IsHost) return;
 
         inventoryManager.ClearInventory();
-
-        PlayerDatabase.instance.TryRemovePlayerFromDatabaseServerRpc(player.ID); // Must happen last
+        base.OnNetworkDespawn();
     }
     
     void OnBeforeApplicationQuit()
     {
         if (!IsOwner) return;
-        
-        //TODO: call server rpc to remove from playerdatabase
     }
 
     private void OnApplicationFocus(bool focus)
@@ -127,10 +126,8 @@ public class InputManager : NetworkBehaviour
         if (!IsSpawned) return;
         if (!IsOwner) return;
 
-        // Tell the player manager to move using the value from the movement input action.
         playerManager.ProcessMove(onFoot.Movement.ReadValue<Vector2>());
 
-        // Tell the player manager to navigate inventory UI from the navigateUI input action
         playerManager.ProcessScroll(onFoot.NavigateInventory.ReadValue<Vector2>());
 
     }
@@ -139,23 +136,11 @@ public class InputManager : NetworkBehaviour
     {
         if (!IsSpawned) return;
         if (!IsOwner) return;
-        // Tell the player manager to look using the value from the look input action.
+
         playerManager.ProcessLook(onFoot.Look.ReadValue<Vector2>());
     }
 
     #region /// ENABLE and DISABLE ///
-    private void OnEnable()
-    {
-        if (!IsOwner) return;
-
-        onFoot.Enable();
-    }
-    private void OnDisable()
-    {
-        if (!IsOwner) return;
-
-        onFoot.Disable();
-    }
 
     private void Enable(bool enable)
     {
@@ -196,7 +181,6 @@ public class InputManager : NetworkBehaviour
         
         if (inventoryManager.HoldingItem())
         {
-            // Already checked if weapon in playerinteract
             inventoryManager.GetCurrentItemInfo().ItemAttackAnimations();
         }
         return playerInput.OnFoot.Attack.triggered;

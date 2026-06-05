@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
 
-public class Enemy : MonoBehaviour
+public class Enemy : NetworkBehaviour
 {
     public bool CanBeDamaged = true;
     protected Damageable damageable;
@@ -25,7 +25,7 @@ public class Enemy : MonoBehaviour
     [Header("Vision")]
     public Transform EyeLevelTransform;
     public float visionDistance = 15f;
-    public LayerMask visionMask;
+    public LayerMask visionMask; // TODO: Default: 
 
     [SerializeField] protected State currentState = State.Wandering;
 
@@ -34,8 +34,8 @@ public class Enemy : MonoBehaviour
         Wandering, // not yet aware of player
         Tracking, // aware of player
         Attacking, // engaging player
-        Fleeing, 
-        Custom // unique states for enemy inherited scripts
+        Fleeing, // some condition scares the enemy (ex. low health)
+        Custom // unique state for enemy (ex. for power tracking - locking on to energy signature)
     }
 
     #region /// Initializing ///
@@ -72,6 +72,8 @@ public class Enemy : MonoBehaviour
 
     protected virtual void SetSpawnPosition()
     {
+        if (IsSpawned && !IsHost) return;
+
         if (AStarManager.instance.AllNodes.Count > 0)
         {
             CurrentNode = AStarManager.instance.AllNodes[(Random.Range(0, AStarManager.instance.AllNodes.Count - 1))];
@@ -79,7 +81,7 @@ public class Enemy : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("List of ANodes is empty");
+            Debug.LogWarning("list of ANodes is empty");
         }
         
     }
@@ -93,6 +95,8 @@ public class Enemy : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        if (!IsHost) return;
+
         UpdatingTarget();
         if (UsingNodes)
         {
@@ -117,9 +121,6 @@ public class Enemy : MonoBehaviour
         EnemyUpdate();
     }
 
-    /// <summary>
-    /// Overriden by inherited enemy classes to implement unqiue states.
-    /// </summary>
     protected virtual void CustomStateUpdate()
     {
 
@@ -171,9 +172,8 @@ public class Enemy : MonoBehaviour
                         {
                             ChangeState(State.Attacking, false);
                         }
-
-                        //WORKING HERE: enemy eyes need to follow player when player is found
                         
+                        // attack // check if player still alive
                         bool playerDead = damagingEntity.Attack(hitInformation.collider.GetComponent<PlayerManager>());
                         if (playerDead)
                         {
@@ -190,7 +190,7 @@ public class Enemy : MonoBehaviour
                 {
                     case State.Attacking:
                     case State.Tracking:
-                        //Debug.Log("Player lost");
+                        //Debug.Log("No longer tracking player");
                         ChangeState(State.Wandering);
                         break;
                 }
@@ -215,7 +215,12 @@ public class Enemy : MonoBehaviour
             Vector3 movementDirection = pathPosition - transform.position;
             movementDirection.y = 0f;
             transform.position = Vector3.MoveTowards(transform.position, pathPosition, Speed * Time.deltaTime);
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(movementDirection.normalized), Time.deltaTime * RotationSpeed);
+            if (movementDirection != Vector3.zero)
+            {
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(movementDirection.normalized), Time.deltaTime * RotationSpeed);
+            }
+            
+            //Debug.Log("movement dir: " + movementDirection.normalized);
 
 
             if (Vector2.Distance(transform.position, CurrentPath[i].transform.position) < 0.1f)
@@ -228,7 +233,7 @@ public class Enemy : MonoBehaviour
         {
             while (CurrentPath == null || CurrentPath.Count == 0 && AStarManager.instance.AllNodes.Count > 0)
             {
-                CurrentPath = AStarManager.instance.DeterminePath(CurrentNode, AStarManager.instance.AllNodes[(Random.Range(0, AStarManager.instance.AllNodes.Count - 1))]);
+                CurrentPath = AStarManager.instance.DeterminePath(CurrentNode, AStarManager.instance.AllNodes[(Random.Range(0, AStarManager.instance.AllNodes.Count - 1))]); // TODO: pick a wandering range
             }
         }
     }
@@ -242,11 +247,8 @@ public class Enemy : MonoBehaviour
         {
             ANode previousDestination = destination;
             destination = ClosestANode(trackingTransform.position);
-
             if (previousDestination != destination)
             {
-                //Debug.Log("Destination moved, finding new path");
-                
                 while (CurrentPath == null || CurrentPath.Count == 0 && AStarManager.instance.AllNodes.Count > 0)
                 {
                     CurrentPath = AStarManager.instance.DeterminePath(CurrentNode, destination);
@@ -264,7 +266,10 @@ public class Enemy : MonoBehaviour
                     movementDirection.y = 0f;
                     transform.position = Vector3.MoveTowards(transform.position, pathPosition, Speed * Time.deltaTime);
                     //Debug.Log(">>> NEW POS: " + transform.position);
-                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(movementDirection.normalized), Time.deltaTime * RotationSpeed);
+                    if (movementDirection != Vector3.zero)
+                    {
+                        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(movementDirection.normalized), Time.deltaTime * RotationSpeed);
+                    }
 
                     if (Vector2.Distance(transform.position, CurrentPath[i].transform.position) < 0.1f)
                     {
@@ -285,7 +290,7 @@ public class Enemy : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("no transform for tracking set, but in enemyy state is tracking");
+            Debug.LogWarning("no transform for tracking set, but is in state: tracking");
         }
     }
 
@@ -305,12 +310,17 @@ public class Enemy : MonoBehaviour
 
         if (shortestDistance == -1)
         {
-            Debug.LogError("No shortest distance found, something has gone terribly wrong");
+            Debug.LogError(" no shortest distance found, something has gone terribly wrong");
         }
 
         return output;
     }
 
+    // Causes to state change:
+    // Wandering: destination reached
+    // Not Attacking: player noticed (priority is by default closet, which can change every 15ish secs?) (other enemies might have other priorities)
+    // Tracking: close enought to player to attack
+    // Determines the new state for the enemy
     protected virtual void ChangeState(State newState, bool clearPath = true)
     {
         //Debug.Log("Changing state  to :" +  newState);
@@ -323,9 +333,7 @@ public class Enemy : MonoBehaviour
         
     }
 
-    /// <summary>
-    /// Last function to be added to death event functions.
-    /// </summary>
+    // Last death function to be added
     public virtual void OnDeath()
     {
         Destroy(gameObject);

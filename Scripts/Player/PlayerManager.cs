@@ -1,8 +1,6 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics.Contracts;
-using System.Runtime.CompilerServices;
+using Unity.Netcode;
 using UnityEngine;
 
 
@@ -11,6 +9,7 @@ public class PlayerManager : Damageable
     [SerializeField] private CharacterController controller;
     private Vector3 playerVelocity;
     private bool isGrounded;
+    private bool jumpQueued = false;
     
     [Header("Player Movement")]
     private float playerSpeed = 3f;
@@ -25,8 +24,8 @@ public class PlayerManager : Damageable
 
     [Header("Player Look")]
     public Camera cam;
-    public float xSensitivity = 30f;
-    public float ySensitivity = 30f;
+    public float xSensitivity = 10f;
+    public float ySensitivity = 10f;
     private float xRotation = 0f;
 
     [Header("Player Crouch")]
@@ -39,14 +38,14 @@ public class PlayerManager : Damageable
     [Header("Player Sprint")]
     [SerializeField] private int sprintUsePerTick = 5;
     [SerializeField] private int sprintRecoveryPerTick = 5;
-    public int MaxSprintStamina = 100;
-    private int sprintStamina;
+    public float MaxSprintStamina = 100f;
+    private float sprintStamina;
     private bool isSprinting = false;
 
     private PlayerUI playerUI;
     private InventoryManager inventoryManager;
 
-    // OS Variables //
+    // OS Variables
     private bool isMacUser = false;
 
     // Start is called before the first frame update
@@ -63,8 +62,6 @@ public class PlayerManager : Damageable
         playerSpeed = playerHealthySpeed;
         playerUI = GetComponent<PlayerUI>();
         inventoryManager = GetComponent<InventoryManager>();
-        
-        TimeManager.instance.Tick += UseAndRecoverSprint;
     }
 
     // Update is called once per frame
@@ -78,35 +75,43 @@ public class PlayerManager : Damageable
             ImplementCrouch();
         }
 
-        float percentSprint = sprintStamina / (float)MaxSprintStamina;
+        UseAndRecoverSprint();
+        float percentSprint = sprintStamina / MaxSprintStamina;
         playerUI.UpdateSprintBar(percentSprint);
+
+        if (jumpQueued && isGrounded)
+        {
+            Jump();
+            jumpQueued = false;
+        }
     }
 
-    public void SetPosition(Vector3 position)
+    public void SetPosition(Vector3 newPosition)
     {
-        controller.transform.position = position;
+        controller.enabled = false;
+        controller.transform.position = newPosition;
+        controller.enabled = true;
     }
 
 
     /// <summary>
-    /// Called by Tick from TimeManager
+    /// Called by update
     /// </summary>
     public void UseAndRecoverSprint()
     {
         if (isSprinting && sprintStamina > 0)
         {
-            sprintStamina -= sprintUsePerTick;
+            sprintStamina -= sprintUsePerTick * Time.deltaTime;
             if (sprintStamina < 0)
             {
                 sprintStamina = 0;
                 playerSpeed = DefaultSpeed();
                 isSprinting = false;
-                //TODO: be slower for a bit vv
             }
         }
         else if (!isSprinting && sprintStamina != MaxSprintStamina)
         {
-            sprintStamina += sprintRecoveryPerTick;
+            sprintStamina += sprintRecoveryPerTick * Time.deltaTime;
 
             if (sprintStamina > MaxSprintStamina)
             {
@@ -125,7 +130,7 @@ public class PlayerManager : Damageable
     /// </summary>
     protected override void ChangeSpeed()
     {
-        playerUI.UpdateHealthBar((float)Health / (float)MaxHealth);
+        playerUI.UpdateHealthBar((float)Health.Value / (float)MaxHealth);
         switch (_HealthStatus)
         {
             case HealthStatus.Healthy:
@@ -137,7 +142,7 @@ public class PlayerManager : Damageable
                 playerSpeed *= crouchSpeedReduction;
                 jumpHeight -= crouchJumpReduction;
 
-                // Stop sprint if is sprinting
+                // Stop sprint if sprinting
                 if (isSprinting)
                 {
                     isSprinting = false;
@@ -147,14 +152,19 @@ public class PlayerManager : Damageable
         }
     }
 
-    public void ResetHealth()
+    public void ResetHealth_TO_SERVER()
     {
-        Health = MaxHealth;
-        ChangeSpeed();
+        ResetHealthServerRpc(MaxHealth);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void ResetHealthServerRpc(int maxHealth)
+    {
+        Health.Value = maxHealth;
     }
 
     /// <summary>
-    /// Receives movement inputs for InputManager.cs and applies them to the character controller.
+    /// Receives movement inputs for InputManager.cs and apply them to the character controller.
     /// </summary>
     /// <param name="input"></param>
     public void ProcessMove(Vector2 input)
@@ -163,6 +173,7 @@ public class PlayerManager : Damageable
         
         if (!isGrounded)
         {
+            // Don't allow direction changes with WASD
             if (input.x > 0)
             {
                 if (jumpXDirection < 0)
@@ -194,6 +205,7 @@ public class PlayerManager : Damageable
             }
         }
         
+        // Translates 2D to 3D
         moveDirection.x = input.x;
         moveDirection.z = input.y;
 
@@ -226,6 +238,12 @@ public class PlayerManager : Damageable
     /// Receive jump inputs for InputManager.cs and apply them to the character controller
     public void Jump()
     {
+        if (!isGrounded)
+        {
+            jumpQueued = true;
+            return;
+        }
+
         playerVelocity.y = Mathf.Sqrt(jumpHeight * -1.5f * gravity);
         
         if (playerVelocity.x > 0)
@@ -257,17 +275,15 @@ public class PlayerManager : Damageable
         xRotation -= (mouseY * Time.deltaTime) * ySensitivity;
         xRotation = Mathf.Clamp(xRotation, -80, 80); // has a min of -80 and max of 80
 
-        // Apply the rotation to the camera transform
         cam.transform.localRotation = Quaternion.Euler(xRotation, 0, 0);
 
-        // Rotate player to look left and right
         transform.Rotate(Vector3.up * (mouseX * Time.deltaTime) * xSensitivity);
 
     }
 
     public void ProcessScroll(Vector2 input)
     {
-        //Debug.Log("scroll direction: " + input.y);
+        //Debug.Log("scroll direction: " + input.y); //TODO: scroll speed on windows is awful
         float direction = input.y;
 
         if (direction != 0)
